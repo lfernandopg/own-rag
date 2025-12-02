@@ -2,24 +2,39 @@ import os
 from pathlib import Path
 from huggingface_hub import snapshot_download
 
-def download_model():
-    # Modelo ligero y eficiente (aprox 40MB cuantizado)
-    MODEL_ID = "Xenova/all-MiniLM-L6-v2"
+def download_models():
+    # Definir rutas base
+    base_path = Path(__file__).parent.parent / "data" / "models"
+    
+    # 1. Modelo de Embeddings
+    embed_model_id = "Xenova/all-MiniLM-L6-v2"
+    embed_dir = base_path / "all-MiniLM-L6-v2"
+    
+    # 2. Modelo de Reranking
+    reranker_model_id = "Xenova/ms-marco-TinyBERT-L-2-v2"
+    reranker_dir = base_path / "ms-marco-TinyBERT-L-2-v2"
 
-    # Directorio local relativo
-    base_dir = Path(__file__).parent.parent / "data" / "models" / "all-MiniLM-L6-v2"
+    print(f"⬇️  Descargando modelos en {base_path}...")
 
-    print(f"⬇️  Descargando modelo {MODEL_ID} en {base_dir}...")
-
-    # Descargamos solo lo necesario para ONNX
+    # Descarga Embeddings
+    print(f"   - Embeddings: {embed_model_id}")
     snapshot_download(
-        repo_id=MODEL_ID,
-        local_dir=base_dir,
+        repo_id=embed_model_id,
+        local_dir=embed_dir,
         allow_patterns=["*.onnx", "tokenizer.json", "config.json", "special_tokens_map.json", "tokenizer_config.json"],
         local_dir_use_symlinks=False
     )
 
-    print("✅ Modelo descargado correctamente.")
+    # Descarga Reranker
+    print(f"   - Reranker: {reranker_model_id}")
+    snapshot_download(
+        repo_id=reranker_model_id,
+        local_dir=reranker_dir,
+        allow_patterns=["*.onnx", "tokenizer.json", "config.json", "special_tokens_map.json", "tokenizer_config.json"],
+        local_dir_use_symlinks=False
+    )
+
+    print("✅ Todos los modelos descargados correctamente.")
 
 if __name__ == "__main__":
-    download_model()
+    download_models()

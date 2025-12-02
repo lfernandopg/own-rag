@@ -7,6 +7,7 @@ from rag_core import RagEngine
 # Ajustamos para que apunte correctamente a donde Docker monta los volúmenes
 BASE_DIR = Path(__file__).parent.parent 
 MODEL_PATH = BASE_DIR / "data" / "models" / "all-MiniLM-L6-v2"
+RERANK_PATH = BASE_DIR / "data" / "models" / "ms-marco-TinyBERT-L-2-v2" # Nueva ruta
 DB_PATH = BASE_DIR / "data" / "databases" / "chroma_benchmark"
 
 # Texto de prueba (Lorem Ipsum largo o texto real)
@@ -39,7 +40,7 @@ def run_benchmark():
     # 2. Medir tiempo de carga (Cold Start)
     start_time = time.perf_counter()
     # Inicializamos el motor híbrido
-    engine = RagEngine(str(MODEL_PATH), str(DB_PATH))
+    engine = RagEngine(str(MODEL_PATH), str(RERANK_PATH), str(DB_PATH))
     load_time = time.perf_counter() - start_time
     print(f"⏱️  Carga de Modelos (Cold Start): {load_time:.4f} segundos")
 
