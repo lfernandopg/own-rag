@@ -1,0 +1,40 @@
+{
+  "name": "RAG Lab ConfidentialAI",
+  "dockerComposeFile": [
+    "../docker-compose.yml"
+  ],
+  "service": "rag-lab-confidetialai",  // Attach to this service
+  "runServices": ["rag-lab-confidetialai"],
+  "workspaceFolder": "/app",
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose",  // Stops the full stack if you shut down this Dev Container
+  "remoteUser": "dev",  // Or whatever user your backend Dockerfile uses (e.g., if it's Python/FastAPI, often root or a custom user)
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Add backend-specific extensions, e.g., for Python:
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "ms-python.debugpy",
+        "eamodio.gitlens",
+        "codeium.codeium",
+        "postman.postman-for-vscode",
+        "alexcvzz.vscode-sqlite",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers"
+        // Add more as needed for your backend stack
+      ],
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "python.languageServer": "Pylance",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "python.defaultInterpreterPath": "/app/.venv/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestPath": "/app/.venv/bin/pytest"
+
+      }
+    }
+  }
+}

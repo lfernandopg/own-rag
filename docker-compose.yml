@@ -1,0 +1,19 @@
+services:
+  rag-lab-confidetialai:
+    build: .
+    container_name: rag-lab-confidetialai
+    volumes:
+      # BIND MOUNT: Lo que edites en tu VS Code se refleja aquí
+      - ./:/app
+      # Persistencia de modelos para no descargarlos cada vez
+      - ./data/models:/app/data/models
+      # Persistencia de la base de datos de prueba
+      - ./data/databases:/app/data/databases
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Límites de recursos (Opcional, para simular entorno de usuario)
+    #deploy:
+    #  resources:
+    #    limits:
+    #      cpus: '2'
+    #      memory: 2G
