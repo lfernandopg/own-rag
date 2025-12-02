@@ -11,9 +11,3 @@ services:
       - ./data/databases:/app/data/databases
     environment:
       - PYTHONUNBUFFERED=1
-    # Límites de recursos (Opcional, para simular entorno de usuario)
-    #deploy:
-    #  resources:
-    #    limits:
-    #      cpus: '2'
-    #      memory: 2G

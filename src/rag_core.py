@@ -151,7 +151,7 @@ class RagEngine:
         return [" ".join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size - overlap)]
 
     def ingest(self, text: str, project_id: str = "default"):
-        parent_chunks = self._chunk_text(text, chunk_size=800, overlap=0)
+        parent_chunks = self._chunk_text(text, chunk_size=1000, overlap=0)
         child_docs = []
         new_tokenized_corpus = []
 
@@ -159,7 +159,7 @@ class RagEngine:
             parent_id = str(uuid4())
             self.doc_store.add_document(parent_id, parent_text) # Guardar en SQLite
             
-            child_chunks = self._chunk_text(parent_text, chunk_size=150, overlap=30)
+            child_chunks = self._chunk_text(parent_text, chunk_size=300, overlap=30)
             if not child_chunks: continue
             
             vectors = self.embedder.embed(child_chunks)
@@ -222,7 +222,7 @@ class RagEngine:
                         seen_parents.add(p_id)
 
         # E. Reranking con ONNX (El paso de calidad)
-        if not candidate_docs: return "No information found."
+        if not candidate_docs: return None
         
         scores = self.reranker.predict(query, candidate_docs)
         
@@ -231,7 +231,7 @@ class RagEngine:
         
         # Devolver Top K final
         final_texts = [text for text, score in scored_results[:top_k]]
-        return "\n\n".join(final_texts)
+        return final_texts
 
     def _rrf(self, list_a, list_b, k=60):
         scores = {}
