@@ -118,15 +118,16 @@ class PDFProcessor:
 
     #     return chunks
 
-    def _generate_chunks_from_pdf_sync(self, filepath: Path, detect_tables: bool) -> Generator[Tuple[int, str], None, None]:
+    def _generate_chunks_from_pdf_sync(self, filepath: Path, detect_tables: bool) -> Generator[Tuple[int, int, str], None, None]:
         """
         Procesa un único archivo PDF y genera trozos de texto de forma síncrona.
         Esta función es un generador, produciendo trozos a medida que se procesan las páginas.
         """
         try:
             with pdfplumber.open(filepath) as pdf:
+                total_pages = len(pdf.pages)
                 for page_num, page in enumerate(pdf.pages, 1):
-                    logging.debug(f"Procesando página {page_num} del archivo '{filepath}'...")
+                    logging.debug(f"Procesando página {page_num}/{total_pages} del archivo '{filepath}'...")
 
                     page_chunks = []
                     page_text_content = ""
@@ -156,14 +157,14 @@ class PDFProcessor:
 
                     # Cede cada trozo de la página actual antes de pasar a la siguiente
                     for chunk in page_chunks:
-                        yield (page_num, chunk)
+                        yield (page_num, total_pages, chunk)
 
         except Exception as e:
             logging.error(f"Error procesando el archivo {filepath}: {e}")
 
     async def process_pdfs(
         self, source_path: str, detect_tables: bool = True
-    ) -> AsyncGenerator[Tuple[str, int, str], None]:
+    ) -> AsyncGenerator[Tuple[str, int, int, str], None]:
         """
         Procesa archivos PDF desde una ruta (archivo o directorio) de forma asíncrona.
 
@@ -172,8 +173,8 @@ class PDFProcessor:
             detect_tables (bool): Si es True, detecta y convierte tablas a Markdown.
 
         Yields:
-            AsyncGenerator[Tuple[str, int, str], None]: Un generador asíncrono que produce
-            tuplas de (ruta_del_archivo, numero_de_pagina, contenido_del_trozo).
+            AsyncGenerator[Tuple[str, int, int, str], None]: Un generador asíncrono que produce
+            tuplas de (ruta_del_archivo, numero_de_pagina, total_paginas, contenido_del_trozo).
         """
         path = Path(source_path)
         if not path.exists():
@@ -210,9 +211,9 @@ class PDFProcessor:
                     logging.info(f"Streaming completado para: {pdf_file}")
                     break
 
-                page_num, chunk = result
-                logging.debug(f"Generando trozo del archivo: {pdf_file}, página: {page_num}")
-                yield (str(pdf_file), page_num, chunk)
+                page_num, total_pages, chunk = result
+                logging.debug(f"Generando trozo del archivo: {pdf_file}, página: {page_num}/{total_pages}")
+                yield (str(pdf_file), page_num, total_pages, chunk)
 
         end_time = asyncio.get_event_loop().time()
         logging.info(f"Procesamiento completado en {end_time - init_time:.2f} segundos.")
@@ -240,13 +241,13 @@ async def main():
     try:
         print(f"\nProcesando: '{test_path}' con detección de tablas activada...")
         # Itera asíncronamente sobre los trozos a medida que se generan
-        async for source_file, page_num, chunk in pdf_processor.process_pdfs(
+        async for source_file, page_num, total_pages, chunk in pdf_processor.process_pdfs(
             str(test_path), detect_tables=True
         ):
             if total_chunks < 10000:  # Imprime solo los primeros 10000 trozos para brevedad
                 print("\n" + "=" * 50)
                 print(f"Fuente: {source_file}")
-                print(f"Página: {page_num}")
+                print(f"Página: {page_num}/{total_pages}")
                 print(f"--- Trozo {total_chunks + 1} (Longitud: {len(chunk)}) ---")
                 print("=" * 50)
                 print(chunk[:300] + "..." if len(chunk) > 300 else chunk)

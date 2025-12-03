@@ -229,9 +229,9 @@ class RagEngine:
 
         # 2. Reranking (Usando los textos HIJOS)
         # El modelo ahora lee fragmentos de ~300 palabras, que caben en su ventana de 512 tokens.
-        print(f"Reranking {valid_child_texts} child texts...")
+        # print(f"Reranking {valid_child_texts} child texts...")
         scores = self.reranker.predict(query, valid_child_texts)
-        print(f"Reranker scores: {scores}")
+        # print(f"Reranker scores: {scores}")
         # Emparejamos (Metadata, Score) y ordenamos por Score descendente
         # Notar que ya no necesitamos el texto del hijo en el resultado final
         scored_candidates = sorted(zip(valid_metadatas, scores), key=lambda x: x[1], reverse=True)

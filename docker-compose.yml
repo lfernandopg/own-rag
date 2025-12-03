@@ -11,3 +11,10 @@ services:
       - ./data/databases:/app/data/databases
     environment:
       - PYTHONUNBUFFERED=1
+    networks:
+      - confidential_gpt_network
+
+networks:
+  confidential_gpt_network:
+    external: true
+    name: confidential_gpt_network

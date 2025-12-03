@@ -10,6 +10,7 @@ RUN groupadd -r dev -g 1000 \
 # Instalar dependencias de sistema mínimas
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /app/.venv
