@@ -32,7 +32,7 @@ async def process_documents(folder_path: str) -> Dict[str, str]:
     Usa el procesador asíncrono para leer los PDFs.
     Retorna un diccionario {nombre_archivo: texto_completo}.
     """
-    processor = PDFProcessor(max_chunk_size=1000, chunk_overlap=100, logs_level=40) # 40 = ERROR para reducir ruido
+    processor = PDFProcessor(max_chunk_size=2560, chunk_overlap=250, logs_level=40) # 40 = ERROR para reducir ruido
     file_contents: Dict[str, List[str]] = {}
     
     print(f"📂  Leyendo archivos desde: {folder_path}")
@@ -128,7 +128,7 @@ def run_rag_demo():
         
         # Búsqueda
         try:
-            # engine.search devuelve un string con los contextos unidos
+            # engine.search devuelve un string con los contextos
             context_chunks = engine.search(query, top_k=3)
             
             elapsed = time.time() - start_q

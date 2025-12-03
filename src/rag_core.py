@@ -151,7 +151,7 @@ class RagEngine:
         return [" ".join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size - overlap)]
 
     def ingest(self, text: str, project_id: str = "default"):
-        parent_chunks = self._chunk_text(text, chunk_size=1000, overlap=0)
+        parent_chunks = self._chunk_text(text, chunk_size=900, overlap=90)
         child_docs = []
         new_tokenized_corpus = []
 
@@ -159,7 +159,7 @@ class RagEngine:
             parent_id = str(uuid4())
             self.doc_store.add_document(parent_id, parent_text) # Guardar en SQLite
             
-            child_chunks = self._chunk_text(parent_text, chunk_size=300, overlap=30)
+            child_chunks = self._chunk_text(parent_text, chunk_size=250, overlap=25)
             if not child_chunks: continue
             
             vectors = self.embedder.embed(child_chunks)
@@ -180,7 +180,7 @@ class RagEngine:
         return len(child_docs)
 
     def search(self, query: str, top_k: int = 3):
-        # A. Búsqueda Vectorial (Top 50 para tener candidatos de sobra)
+        # A. Búsqueda Vectorial (Top 50)
         q_vec = self.embedder.embed([query])[0]
         vec_results = self.db.search(q_vec, limit=50)
         
@@ -191,46 +191,67 @@ class RagEngine:
             top_n = np.argsort(scores)[::-1][:50]
             kw_results = [{"id": self.bm25_corpus_map[i]} for i in top_n if scores[i] > 0]
 
-        # C. RRF Fusion
+        # C. RRF Fusion para obtener IDs únicos ordenados por relevancia preliminar
         fused_ids = self._rrf(vec_results, kw_results, k=60)
         
-        # D. Recuperar Textos Padres desde SQLite
-        candidate_docs = []
-        candidate_ids = []
+        # --- CAMBIO PRINCIPAL: Reranking sobre HIJOS, retorno de PADRES ---
+        
+        # 1. Recuperar Textos de los HIJOS para el Reranker
+        # Tomamos los top 20 candidatos de la fusión para refinar
+        candidates_to_rerank = fused_ids[:20]
+        if not candidates_to_rerank: return []
+
+        # Hacemos una consulta directa a Chroma para obtener texto y metadata de estos IDs
+        # Esto nos asegura tener el texto del hijo (300 palabras) para el reranker
+        data = self.db.collection.get(
+            ids=candidates_to_rerank,
+            include=['documents', 'metadatas']
+        )
+        
+        # Chroma devuelve listas no ordenadas, creamos un mapa para procesar
+        # Estructura: id -> (texto_hijo, metadata)
+        doc_map = {
+            did: (doc, meta) 
+            for did, doc, meta in zip(data['ids'], data['documents'], data['metadatas'])
+        }
+
+        # Preparamos listas alineadas para el Reranker
+        valid_child_texts = []
+        valid_metadatas = []
+        
+        for cid in candidates_to_rerank:
+            if cid in doc_map and doc_map[cid][0]: # Verificar que exista y tenga texto
+                text, meta = doc_map[cid]
+                valid_child_texts.append(text)
+                valid_metadatas.append(meta)
+
+        if not valid_child_texts: return []
+
+        # 2. Reranking (Usando los textos HIJOS)
+        # El modelo ahora lee fragmentos de ~300 palabras, que caben en su ventana de 512 tokens.
+        print(f"Reranking {valid_child_texts} child texts...")
+        scores = self.reranker.predict(query, valid_child_texts)
+        print(f"Reranker scores: {scores}")
+        # Emparejamos (Metadata, Score) y ordenamos por Score descendente
+        # Notar que ya no necesitamos el texto del hijo en el resultado final
+        scored_candidates = sorted(zip(valid_metadatas, scores), key=lambda x: x[1], reverse=True)
+        
+        # 3. Recuperar PADRES para el resultado final
+        final_texts = []
         seen_parents = set()
         
-        # Tomamos los top 20 de la fusión para rerankear
-        for doc_id in fused_ids[:20]:
-            # Buscar en resultados vectoriales primero para sacar metadata rápido
-            meta = next((r['metadata'] for r in vec_results if r['id'] == doc_id), None)
-            # Si no estaba en vectorial (solo en BM25), habría que consultar Chroma, 
-            # por simplicidad aquí priorizamos los que tienen metadata a mano o hacemos un fetch extra si es crítico.
+        for meta, score in scored_candidates:
+            if len(final_texts) >= top_k:
+                break
             
-            # Nota: Si el ID viene solo de BM25, necesitamos recuperar metadata de Chroma.
-            if not meta:
-                # Recuperación de "rescate"
-                coll_res = self.db.collection.get(ids=[doc_id], include=['metadatas'])
-                if coll_res['metadatas']: meta = coll_res['metadatas'][0]
-
-            if meta and 'parent_id' in meta:
-                p_id = meta['parent_id']
-                if p_id not in seen_parents:
-                    parent_text = self.doc_store.get_document(p_id)
-                    if parent_text:
-                        candidate_docs.append(parent_text)
-                        candidate_ids.append(p_id) # Usamos parent_id para identificar
-                        seen_parents.add(p_id)
-
-        # E. Reranking con ONNX (El paso de calidad)
-        if not candidate_docs: return None
+            parent_id = meta.get('parent_id')
+            if parent_id and parent_id not in seen_parents:
+                # AQUÍ ocurre la magia: Usamos el ID del padre para sacar el texto completo de SQLite
+                parent_text = self.doc_store.get_document(parent_id)
+                if parent_text:
+                    final_texts.append(parent_text)
+                    seen_parents.add(parent_id)
         
-        scores = self.reranker.predict(query, candidate_docs)
-        
-        # Emparejar (Texto, Score) y ordenar
-        scored_results = sorted(zip(candidate_docs, scores), key=lambda x: x[1], reverse=True)
-        
-        # Devolver Top K final
-        final_texts = [text for text, score in scored_results[:top_k]]
         return final_texts
 
     def _rrf(self, list_a, list_b, k=60):
